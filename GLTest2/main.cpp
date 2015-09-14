@@ -1,95 +1,110 @@
-//Include GLEW
-#include <GL/glew.h>
+#include <stdio.h>
 
-//Include GLFW
+#include <stdlib.h>
+//#include <string>
+
+#include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-//Include the standard C++ headers
-#include <stdio.h>
-#include <stdlib.h>
-
-//Define an error callback
-static void error_callback(int error, const char* description)
-{
-	fputs(description, stderr);
-	_fgetchar();
-}
-
-//Define the key input callback
-static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-		glfwSetWindowShouldClose(window, GL_TRUE);
-}
-
-int main(void)
-{
-	//Set the error callback
-	glfwSetErrorCallback(error_callback);
-
-	//Initialize GLFW
-	if (!glfwInit())
-	{
-		exit(EXIT_FAILURE);
-	}
-
-	//Set the GLFW window creation hints - these are optional
-	//glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); //Request a specific OpenGL version
-	//glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3); //Request a specific OpenGL version
-	//glfwWindowHint(GLFW_SAMPLES, 4); //Request 4x antialiasing
-	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-	//Declare a window object
-	GLFWwindow* window;
-
-	//Create a window and create its OpenGL context
-	window = glfwCreateWindow(640, 480, "Test Window", NULL, NULL);
-
-	//If the window couldn't be created
-	if (!window)
-	{
-		fprintf(stderr, "Failed to open GLFW window.\n");
-		glfwTerminate();
-		exit(EXIT_FAILURE);
-	}
-
-	//This function makes the context of the specified window current on the calling thread. 
-	glfwMakeContextCurrent(window);
-
-	//Sets the key callback
-	glfwSetKeyCallback(window, key_callback);
-
-	//Initialize GLEW
-	GLenum err = glewInit();
-
-	//If GLEW hasn't initialized
-	if (err != GLEW_OK)
-	{
-		fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
+int main() {
+	if (glfwInit() == false){
+		// did not succeed
+		fprintf(stderr, "GLFW failed to initialise.");
 		return -1;
 	}
 
-	//Set a background color
-	glClearColor(0.0f, 0.0f, 1.0f, 0.0f);
+	// 4 AA
+	glfwWindowHint(GLFW_SAMPLES, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	//Main Loop
-	do
-	{
-		//Clear color buffer
+
+
+
+	GLFWwindow* window;
+	window = glfwCreateWindow(640, 480, "Mike's C++ OpenGL Demo", NULL, NULL);
+
+	if (!window) {
+		fprintf(stderr, "Window failed to create");
+		glfwTerminate();
+		return -1;
+	}
+
+	glfwMakeContextCurrent(window);
+	glewExperimental = true;
+
+	if (glewInit() != GLEW_OK) {
+		fprintf(stderr, "GLEW failed to initialize.");
+		glfwTerminate();
+		return -1;
+	}
+
+	// generate VAO
+	GLuint vaoID;
+	glGenVertexArrays(1, &vaoID);
+	glBindVertexArray(vaoID);
+
+	static const GLfloat verts[] = {
+		// X, Y, Z
+		-0.5f, -0.5f, 0.0f,
+		0.5f, -0.5f, 0.0f,
+		0.0f, 0.5f, 0.0f
+	};
+
+	// shaders
+	GLuint vertShader = glCreateShader(GL_VERTEX_SHADER);
+	GLuint fragShader = glCreateShader(GL_FRAGMENT_SHADER);
+	const char* vertShaderSource = R"(
+		#version 330 core
+		layout(location = 0) in vec3 in_pos;
+		
+		void main(){
+		  gl_Position.xyz = in_pos;
+		  gl_Position.w = 1;
+		}
+		)";
+	const char* fragShaderSource = R"(
+		#version 330 core
+		out vec3 color;
+		
+		void main(){
+		  color = vec3(1,0,0);
+		}
+		)";
+	
+	glShaderSource(vertShader, 1, &vertShaderSource, NULL);
+	glShaderSource(fragShader, 1, &fragShaderSource, NULL);
+	glCompileShader(vertShader);
+	glCompileShader(fragShader);
+	GLuint program = glCreateProgram();
+	glAttachShader(program, vertShader);
+	glAttachShader(program, fragShader);
+	glLinkProgram(program);
+
+	// generate vbo
+	GLuint vboID;
+	glGenBuffers(1, &vboID);
+	glBindBuffer(GL_ARRAY_BUFFER, vboID);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	do {
 		glClear(GL_COLOR_BUFFER_BIT);
+		glEnableVertexAttribArray(0);
 
-		//Swap buffers
+		glBindBuffer(GL_ARRAY_BUFFER, vboID);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+		glUseProgram(program);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+		glDisableVertexAttribArray(0);
+
 		glfwSwapBuffers(window);
-		//Get and organize events, like keyboard and mouse input, window resizing, etc...
 		glfwPollEvents();
 
-	} //Check if the ESC key had been pressed or if the window had been closed
-	while (!glfwWindowShouldClose(window));
+	} while (glfwWindowShouldClose(window) == false);
 
-	//Close OpenGL window and terminate GLFW
-	glfwDestroyWindow(window);
-	//Finalize and clean up GLFW
-	glfwTerminate();
-
-	exit(EXIT_SUCCESS);
+	return 0;
 }
